@@ -185,11 +185,13 @@ async function speechToText(recordingFilePath) {
       console.log('Unable to extract required information from the transcription.');
       const gptResponse = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
-        prompt: `Extract the name, order ID, and issue from the transcription: ${transcriptionText}`,
-        max_tokens: 40,
-        messages: [{"role": "system", "content": "You are a helpful assistant."}]
+        messages: [
+          {"role": "system", "content": "You are a helpful assistant."},
+          {"role": "user", "content": `Extract the name, order ID, and issue from the transcription: ${transcriptionText}`}
+        ]
       });
       
+  
       const gptExtractedInfo = gptResponse.choices[0].message.content;
       console.log('GPT-3 Extracted Information:', gptExtractedInfo);
       

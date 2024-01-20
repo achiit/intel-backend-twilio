@@ -1,18 +1,16 @@
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const request = require('request');
 const https = require('https');
-const mysql = require('mysql2/promise');
+const dotenv = require('dotenv');  // Import dotenv package
+dotenv.config(); 
 const { Readable } = require('stream');
 const { promisify } = require('util');
 const axios = require('axios');
 const speech = require('@google-cloud/speech');
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
-const { Sequelize, DataTypes } = require('sequelize');
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
+const { Sequelize } = require("sequelize");
 const app = express();
 const twilio = require('twilio');
 const openAI = require('openai');
@@ -20,22 +18,34 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json()); // Parse JSON bodies
 app.use(cors());
 const fs = require('fs');
-const accountSid = 'AC0c4af0f345a5c2f63e52b9e474859c48';
-const authToken = '2574c65e5cc6a95086c5cdb74aa20b12';
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const openaiApiKey = process.env.OPENAI_API_KEY;
 const client = new twilio.Twilio(accountSid, authToken);
 const port = process.env.PORT || 3000;
 app.use(express.json());
-app.use(cors());
+
 let name, orderID, issue, priorityLevels;
-
-
-const db = new sqlite3.Database('customer_cares.db');
-
-db.serialize(() => {
-  db.run('CREATE TABLE IF NOT EXISTS customer_cares (id INTEGER PRIMARY KEY, name TEXT, order_id TEXT, issue TEXT, priority TEXT)');
+const sequelize = new Sequelize('postgres://root:WDGvRSZ2krtrJZdMc8GIUjm9UV1wPOP1@dpg-cll4b0cjtl8s73f7f13g-a.oregon-postgres.render.com/calllist', {
+  dialect: "postgres",
+  logging: false,
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false,
+    },
+  },
 });
 
-
+sequelize
+  .sync()
+  .then(() => {
+    console.log("Database connected");
+  })
+  .catch((err) => {
+    console.log(err);
+    console.log("Unable to connect to the database");
+  });
 
 function handleTwilioCall(req, res) {
   const twiml = new VoiceResponse();
@@ -48,7 +58,7 @@ function handleTwilioCall(req, res) {
   //   action: '/handle-response',
   //   method: 'POST',
   // });
-  twiml.record({ 
+  twiml.record({
     action: '/handle-recording',
     transcribe: true,
     transcribeCallback: '/transcript',
@@ -71,12 +81,12 @@ async function handleJsonData(req, res) {
 // Replace with your urgency determination logic
 
   const openai = new openAI({
-    apiKey: "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",
+    apiKey: openaiApiKey,
   });
 
   async function checkPriority() {
     console.log('Checking priority...');
-    const apiUrl = 'http://127.0.0.1:5000/predict_priority';
+    const apiUrl = 'https://priority-predicter.onrender.com/predict_priority';
   
     const requestBody = {
       issue: issue
@@ -86,7 +96,7 @@ async function handleJsonData(req, res) {
       const response = await axios.post(apiUrl, requestBody);
       const priorityLevel = response.data.predicted_priority;
       
-      console.log(priorityLevel); 
+      console.log(priorityLevel);
       priorityLevels = priorityLevel;
       return priorityLevel;
     } catch (error) {
@@ -106,12 +116,28 @@ async function handleJsonData(req, res) {
 
       // Continue with the rest of your code...
 
-      db.run('INSERT INTO customer_cares (name, order_id, issue, priority) VALUES (?, ?, ?, ?)', [name, orderID, issue, priorityLevels]);
- 
-    // Send the response
-    res.status(200).json({ message: 'Request processed successfully' });
+  
+        const CustomerCare = sequelize.define('customer_care', {
+          name: Sequelize.STRING,
+          order_id: Sequelize.STRING,
+          issue: Sequelize.STRING,
+          priority: Sequelize.STRING,
+        });
+
+        CustomerCare.sync()
+          .then(() => {
+            console.log('CustomerCare table created (if not existed)');
+          })
+          .catch((error) => {
+            console.error('Error creating CustomerCare table:', error);
+          });
+
+        await CustomerCare.create({ name, order_id: orderID, issue,priority: priorityLevels });
+        console.log('Data inserted into PostgreSQL');
     
 
+      // Send the response
+      res.status(200).json({ message: 'Request processed successfully' });
 
     } catch (error) {
       console.error("Error:", error.message);
@@ -123,7 +149,7 @@ async function handleJsonData(req, res) {
   await priority();
 }
 const openai = new openAI({
-  apiKey: "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",
+  apiKey: openaiApiKey,
 });
 async function speechToText(recordingFilePath) {
   try {
@@ -158,21 +184,21 @@ async function speechToText(recordingFilePath) {
     } else {
       console.log('Unable to extract required information from the transcription.');
       const gptResponse = await openai.completions.create({
-        model: "text-davinci-003",
+        model: "gpt-3.5-turbo",
         prompt: `Extract the name, order ID, and issue from the transcription: ${transcriptionText}`,
         max_tokens: 40,
       });
 
       const gptExtractedInfo = gptResponse.choices[0].text.trim();
-      console.log(' Extracted Information:', gptExtractedInfo);
+      console.log('GPT-3 Extracted Information:', gptExtractedInfo);
       const gptInfoArray = gptExtractedInfo.split('\n');
       name = gptInfoArray.find(info => info.includes('Name:'))?.replace('Name:', '').trim();
       orderID = gptInfoArray.find(info => info.includes('Order ID:'))?.replace('Order ID:', '').trim();
       issue = gptInfoArray.find(info => info.includes('Issue:'))?.replace('Issue:', '').trim();
 
-      console.log('Name ():', name);
-      console.log('Order ID ():', orderID);
-      console.log('Issue ():', issue);
+      console.log('Name (GPT-3):', name);
+      console.log('Order ID (GPT-3):', orderID);
+      console.log('Issue (GPT-3):', issue);
     }
 
     // Call handleJsonData after extracting information
@@ -182,8 +208,8 @@ async function speechToText(recordingFilePath) {
     console.error("Error during transcription:", error.message);
   }
 }
-// const recordingFilePath = '1.wav'; // Replace with the correct file path
-// speechToText(recordingFilePath);
+const recordingFilePath = '1.wav'; // Replace with the correct file path
+speechToText(recordingFilePath);
 async function handleRecording(req, res) {
   console.log('Received recording callback:', req.body);
 
@@ -191,7 +217,7 @@ async function handleRecording(req, res) {
   const recordingUrl = req.body.RecordingUrl;
   const recordingLength = req.body.RecordingDuration;
 
-  // Process the recording URL as needed (e.g., download the audio file) 
+  // Process the recording URL as needed (e.g., download the audio file)
   console.log('Recording URL:', recordingUrl);
   console.log('Recording duration:', recordingLength);
   downloadRecording(accountSid, authToken, recordingUrl, "1.wav");
@@ -222,7 +248,7 @@ async function downloadRecording(accountSid, authToken, recordingUrl, targetPath
           // If redirected, follow the redirect
           return downloadRecording(accountSid, authToken, response.headers.location, targetPath)
             .then(resolve)
-            .catch(reject); 
+            .catch(reject);
         }
 
         if (response.statusCode !== 200) {
@@ -282,16 +308,22 @@ async function transcribeRecording(req, res) {
 }
 
 function getAllData(req, res) {
-  db.all('SELECT * FROM customer_cares', (err, data) => {
-    if (err) {
-      console.error('Error retrieving data from SQLite: ', err);
-      res.status(500).json({ error: 'Internal Server Error' });
-    } else {
-      res.status(200).json(data);
-    }
+  const CustomerCare = sequelize.define('customer_care', {
+    name: Sequelize.STRING,
+    order_id: Sequelize.STRING,
+    issue: Sequelize.STRING,
+    priority: Sequelize.STRING,
   });
-}
 
+  CustomerCare.findAll()
+    .then((data) => {
+      res.status(200).json(data);
+    })
+    .catch((err) => {
+      console.error('Error retrieving data from PostgreSQL: ', err);
+      res.status(500).json({ error: 'Internal Server Error' });
+    });
+}
 
 app.post('/voice', handleTwilioCall);
 app.post('/handle-response', handleJsonData);
@@ -301,5 +333,4 @@ app.get('/get-all-data', getAllData);
 
 app.listen(3000, '0.0.0.0', () => {
   console.log('Server is running on port 3000');
-}); 
-  
+});

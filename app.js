@@ -187,14 +187,20 @@ async function speechToText(recordingFilePath) {
         model: "gpt-3.5-turbo",
         prompt: `Extract the name, order ID, and issue from the transcription: ${transcriptionText}`,
         max_tokens: 40,
+        messages: [{"role": "system", "content": "You are a helpful assistant."}]
       });
-
+      
       const gptExtractedInfo = gptResponse.choices[0].message.content;
       console.log('GPT-3 Extracted Information:', gptExtractedInfo);
+      
+      // Split the extracted information by newline character
       const gptInfoArray = gptExtractedInfo.split('\n');
+      
+      // Extract information using regular expressions
       name = gptInfoArray.find(info => info.includes('Name:'))?.replace('Name:', '').trim();
       orderID = gptInfoArray.find(info => info.includes('Order ID:'))?.replace('Order ID:', '').trim();
       issue = gptInfoArray.find(info => info.includes('Issue:'))?.replace('Issue:', '').trim();
+      
 
       console.log('Name (GPT-3):', name);
       console.log('Order ID (GPT-3):', orderID);

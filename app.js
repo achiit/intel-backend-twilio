@@ -321,6 +321,7 @@ function getAllData(req, res) {
     order_id: Sequelize.STRING,
     issue: Sequelize.STRING,
     priority: Sequelize.STRING,
+    solved: Sequelize.STRING,
   });
 
   CustomerCare.findAll()

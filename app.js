@@ -333,12 +333,41 @@ function getAllData(req, res) {
       res.status(500).json({ error: 'Internal Server Error' });
     });
 }
+function updateSolvedStatus(req, res) {
+  const { orderId, solvedStatus } = req.body;
 
+  const CustomerCare = sequelize.define('customer_care', {
+    name: Sequelize.STRING,
+    order_id: Sequelize.STRING,
+    issue: Sequelize.STRING,
+    priority: Sequelize.STRING,
+    solved: Sequelize.STRING,
+  });
+
+  CustomerCare.update(
+    { solved: solvedStatus },
+    { where: { order_id: orderId } }
+  )
+    .then((result) => {
+      if (result[0] === 0) {
+        // No rows were updated (orderId not found)
+        res.status(404).json({ message: 'Order not found' });
+      } else {
+        // Rows updated successfully
+        res.status(200).json({ message: 'Solved status updated successfully' });
+      }
+    })
+    .catch((err) => {
+      console.error('Error updating solved status:', err);
+      res.status(500).json({ error: 'Internal Server Error' });
+    });
+}
 app.post('/voice', handleTwilioCall);
 app.post('/handle-response', handleJsonData);
 app.all('/handle-recording', handleRecording);
 app.all('/transcript', transcribeRecording);
 app.get('/get-all-data', getAllData);
+app.post('/update-solved-status', updateSolvedStatus);
 
 app.listen(3000, '0.0.0.0', () => {
   console.log('Server is running on port 3000');

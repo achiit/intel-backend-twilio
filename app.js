@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const { Web3 } = require('web3'); 
 const request = require('request');
 const https = require('https');
 const dotenv = require('dotenv');  // Import dotenv package
@@ -21,8 +22,15 @@ const fs = require('fs');
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const openaiApiKey = process.env.OPENAI_API_KEY;
-const client = new twilio.Twilio(accountSid, authToken);
-const port = process.env.PORT || 3000;
+//const ethereumNodeUrl = 'https://mainnet.infura.io/v3/13accb9a30a4490d953761e897188f84';
+//const web3 = new Web3(`https://polygon-mumbai.infura.io/v3/13accb9a30a4490d953761e897188f84`);
+//import React, { useState } from 'react';
+//import './App.css';
+const ethereumNodeUrl = process.env.ETHEREUM_NODE_URL;
+const polygonNodeUrl = process.env.POLYGON_NODE_URL;
+const web3 = new Web3(polygonNodeUrl); // Using Polygon node URL by default
+
+
 app.use(express.json());
 
 let name, orderID, issue, priorityLevels;
@@ -68,6 +76,10 @@ function handleTwilioCall(req, res) {
   res.type('text/xml');
   res.send(twiml.toString());
 }
+async function handletransaction(req, res) {
+
+
+}
 
 async function handleJsonData(req, res) {
   // const { SpeechResult } = req.body;
@@ -83,6 +95,8 @@ async function handleJsonData(req, res) {
   const openai = new openAI({
     apiKey: openaiApiKey,
   });
+
+
 
   async function checkPriority() {
     console.log('Checking priority...');
@@ -104,7 +118,10 @@ async function handleJsonData(req, res) {
       throw error;
     }
   }
- 
+  
+  // Client-side code
+
+
 
 
   async function priority() {
@@ -362,13 +379,81 @@ function updateSolvedStatus(req, res) {
       res.status(500).json({ error: 'Internal Server Error' });
     });
 }
+// app.post('/initiate-transaction', async (req, res) => {
+//   try {
+//     const { walletAddress, amount } = req.body;
+
+//     // Check if the wallet address and amount are provided
+//     if (!walletAddress || !amount) {
+//       return res.status(400).json({ error: 'Wallet address and amount are required.' });
+//     }
+
+//     // Replace with your wallet address
+//     const yourWalletAddress = '0x9Bd1d19DB4b3E0a663819B4c5B890AB6Bd0DbB09';
+
+//     // Create a transaction object
+//     const transactionObject = {
+//       from: walletAddress,
+//       to: yourWalletAddress,
+//       value: web3.utils.toWei(amount, 'ether'), // assuming amount is provided in Ether
+//     };
+
+//     // Sign the transaction
+//     const signedTransaction = await web3.eth.accounts.signTransaction(transactionObject, '70770692617131780a14058c8dea19e5f96d3792044dcf11dc61acdcf9e19c22');
+
+//     // Send the signed transaction
+//     const transactionReceipt = await web3.eth.sendSignedTransaction(signedTransaction.rawTransaction);
+
+//     res.json({ transactionHash: transactionReceipt.transactionHash });
+//   } catch (error) {
+//     console.error('Error initiating transaction:', error);
+//     res.status(500).json({ error: 'Internal Server Error' });
+//   }
+// });
+async function initiateTransaction(req, res) {
+  try {
+    const { walletAddress, amount } = req.body;
+
+    // Check if the wallet address and amount are provided
+    if (!walletAddress || !amount) {
+      return res.status(400).json({ error: 'Wallet address and amount are required.' });
+    }
+
+    // Replace with your wallet address
+    const yourWalletAddress = '0x9Bd1d19DB4b3E0a663819B4c5B890AB6Bd0DbB09';
+    const gasPrice = await web3.eth.getGasPrice();
+
+    // Create a transaction object
+    const transactionObject = {
+      from: walletAddress,
+      to: yourWalletAddress,
+      value: web3.utils.toWei(amount, 'ether'), // assuming amount is provided in Ether
+      gas: 21000,
+      gasPrice,
+    };
+
+    // Sign the transaction
+    const signedTransaction = await web3.eth.accounts.signTransaction(transactionObject, '70770692617131780a14058c8dea19e5f96d3792044dcf11dc61acdcf9e19c22');
+
+    // Send the signed transaction
+    const transactionReceipt = await web3.eth.sendSignedTransaction(signedTransaction.rawTransaction);
+
+    res.json({ transactionHash: transactionReceipt.transactionHash,"success":"SUCCESS" });
+  } catch (error) {
+    console.error('Error initiating transaction:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
+
+
 app.post('/voice', handleTwilioCall);
 app.post('/handle-response', handleJsonData);
 app.all('/handle-recording', handleRecording);
 app.all('/transcript', transcribeRecording);
 app.get('/get-all-data', getAllData);
 app.post('/update-solved-status', updateSolvedStatus);
+app.post('/initiate-transaction', initiateTransaction);
 
-app.listen(3000, '0.0.0.0', () => {
+app.listen(4000, '0.0.0.0', () => {
   console.log('Server is running on port 3000');
 });

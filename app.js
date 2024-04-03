@@ -26,7 +26,7 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 let name, orderID, issue, priorityLevels;
-const sequelize = new Sequelize('postgres://root:WDGvRSZ2krtrJZdMc8GIUjm9UV1wPOP1@dpg-cll4b0cjtl8s73f7f13g-a.oregon-postgres.render.com/calllist', {
+const sequelize = new Sequelize('postgres://calllist_qi2u_user:NJC1fZt2oFmNovW2lKVnPi2XbBtMzMZO@dpg-co6f0ool6cac73a7t7rg-a.oregon-postgres.render.com/calllist_qi2u', {
   dialect: "postgres",
   logging: false,
   dialectOptions: {
@@ -372,3 +372,5 @@ app.post('/update-solved-status', updateSolvedStatus);
 app.listen(3000, '0.0.0.0', () => {
   console.log('Server is running on port 3000');
 });
+
+

@@ -4,7 +4,7 @@ const cors = require('cors');
 const request = require('request');
 const https = require('https');
 const dotenv = require('dotenv');  // Import dotenv package
-dotenv.config(); 
+dotenv.config();
 const { Readable } = require('stream');
 const { promisify } = require('util');
 const axios = require('axios');
@@ -63,7 +63,7 @@ function handleTwilioCall(req, res) {
     transcribe: true,
     transcribeCallback: '/transcript',
   });
-  
+
 
   res.type('text/xml');
   res.send(twiml.toString());
@@ -78,7 +78,7 @@ async function handleJsonData(req, res) {
   // Perform NLP and ML analysis here to determine priority
 
   // Simulate urgency check
-// Replace with your urgency determination logic
+  // Replace with your urgency determination logic
 
   const openai = new openAI({
     apiKey: openaiApiKey,
@@ -87,15 +87,15 @@ async function handleJsonData(req, res) {
   async function checkPriority() {
     console.log('Checking priority...');
     const apiUrl = 'https://priority-predicter.onrender.com/predict_priority';
-  
+
     const requestBody = {
       issue: issue
     };
-  
+
     try {
       const response = await axios.post(apiUrl, requestBody);
       const priorityLevel = response.data.predicted_priority;
-      
+
       console.log(priorityLevel);
       priorityLevels = priorityLevel;
       return priorityLevel;
@@ -104,37 +104,37 @@ async function handleJsonData(req, res) {
       throw error;
     }
   }
- 
+
 
 
   async function priority() {
     try {
       const p = await checkPriority();
 
-    
+
 
 
       // Continue with the rest of your code...
 
-  
-        const CustomerCare = sequelize.define('customer_care', {
-          name: Sequelize.STRING,
-          order_id: Sequelize.STRING,
-          issue: Sequelize.STRING,
-          priority: Sequelize.STRING,
+
+      const CustomerCare = sequelize.define('customer_care', {
+        name: Sequelize.STRING,
+        order_id: Sequelize.STRING,
+        issue: Sequelize.STRING,
+        priority: Sequelize.STRING,
+      });
+
+      CustomerCare.sync()
+        .then(() => {
+          console.log('CustomerCare table created (if not existed)');
+        })
+        .catch((error) => {
+          console.error('Error creating CustomerCare table:', error);
         });
 
-        CustomerCare.sync()
-          .then(() => {
-            console.log('CustomerCare table created (if not existed)');
-          })
-          .catch((error) => {
-            console.error('Error creating CustomerCare table:', error);
-          });
+      await CustomerCare.create({ name, order_id: orderID, issue, priority: priorityLevels });
+      console.log('Data inserted into PostgreSQL');
 
-        await CustomerCare.create({ name, order_id: orderID, issue,priority: priorityLevels });
-        console.log('Data inserted into PostgreSQL');
-    
 
       // Send the response
       res.status(200).json({ message: 'Request processed successfully' });
@@ -186,23 +186,23 @@ async function speechToText(recordingFilePath) {
       const gptResponse = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [
-          {"role": "system", "content": "You are a helpful assistant."},
-          {"role": "user", "content": `Extract the name, order ID, and issue from the transcription: ${transcriptionText}`}
+          { "role": "system", "content": "You are a helpful assistant." },
+          { "role": "user", "content": `Extract the name, order ID, and issue from the transcription: ${transcriptionText}` }
         ]
       });
-      
-  
+
+
       const gptExtractedInfo = gptResponse.choices[0].message.content;
       console.log('GPT-3 Extracted Information:', gptExtractedInfo);
-      
+
       // Split the extracted information by newline character
       const gptInfoArray = gptExtractedInfo.split('\n');
-      
+
       // Extract information using regular expressions
       name = gptInfoArray.find(info => info.includes('Name:'))?.replace('Name:', '').trim();
       orderID = gptInfoArray.find(info => info.includes('Order ID:'))?.replace('Order ID:', '').trim();
       issue = gptInfoArray.find(info => info.includes('Issue:'))?.replace('Issue:', '').trim();
-      
+
 
       console.log('Name (GPT-3):', name);
       console.log('Order ID (GPT-3):', orderID);
@@ -234,6 +234,49 @@ async function handleRecording(req, res) {
 
   res.status(200).end(); // Respond to the Twilio callback with a 200 status
 }
+
+// async function handleRecording(req, res) {
+//   console.log('Received recording callback:', req.body);
+
+//   // Extract recording URL from the callback
+//   const recordingUrl = req.body.RecordingUrl;
+//   const recordingLength = req.body.RecordingDuration;
+
+//   // Process the recording URL as needed (e.g., download the audio file)
+//   console.log('Recording URL:', recordingUrl);
+//   console.log('Recording duration:', recordingLength);
+//   downloadRecording(accountSid, authToken, recordingUrl, "1.wav");
+
+//   // Set the status to false for the newly created recording
+//   const status = false;
+
+//   try {
+//     console.log("starting the handle recording")
+//     // Define the CustomerCare model
+//     const CustomerCare = sequelize.define('customer_care', {
+//       name: Sequelize.STRING,
+//       order_id: Sequelize.STRING,
+//       issue: Sequelize.STRING,
+//       priority: Sequelize.STRING,
+//       solved: Sequelize.BOOLEAN // Add status column to the model
+//     });
+
+//     // Sync the model with the database
+//     await CustomerCare.sync();
+
+//     // Create a new record with the provided status
+//     await CustomerCare.create({ solved });
+
+//     console.log('New recording inserted into PostgreSQL with status:', status);
+//   } catch (error) {
+//     console.error('Error inserting new recording into PostgreSQL:', error);
+//     // Handle error appropriately
+//   }
+
+//   // Respond to the Twilio callback with a 200 status
+//   res.status(200).end(); 
+// }
+ 
 function extractRecordingSid(recordingUrl) {
   const parts = recordingUrl.split('/');
   return parts[parts.length - 1].split('.')[0]; // Extract the RecordingSid from the URL
@@ -321,7 +364,7 @@ function getAllData(req, res) {
     order_id: Sequelize.STRING,
     issue: Sequelize.STRING,
     priority: Sequelize.STRING,
-    solved: Sequelize.STRING,
+    solved: Sequelize.STRING,   
   });
 
   CustomerCare.findAll()
